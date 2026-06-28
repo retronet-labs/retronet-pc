@@ -1,0 +1,14 @@
+# Workspace di sviluppo locale (punta ai checkout sibling), non versionato.
+go.work
+go.work.sum
+
+# Binari e artefatti
+/retronet-pc
+*.exe
+*.test
+*.out
+
+# ROM del BIOS e dischi forniti dall'utente (non redistribuiti)
+*.rom
+*.bin
+*.img
