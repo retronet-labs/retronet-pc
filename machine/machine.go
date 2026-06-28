@@ -1,30 +1,37 @@
 // Package machine assembla un IBM PC/XT: collega la CPU 8086/8088 di
-// retronet-8086 al bus di memoria mappato e al dispatcher di I/O, su cui si
-// innestano le periferiche.
+// retronet-8086 al bus di memoria mappato, al dispatcher di I/O e alle
+// periferiche (PIC, PIT, PPI), gestendo il percorso degli interrupt hardware.
 package machine
 
 import (
 	"github.com/retronet-labs/retronet-8086/cpu"
+	"github.com/retronet-labs/retronet-pc/device"
 	"github.com/retronet-labs/retronet-pc/io"
 	"github.com/retronet-labs/retronet-pc/memory"
 )
 
-// Machine e' un PC/XT: CPU, memoria e bus I/O. Le periferiche si collegano con
-// IO.Map e (per il video) leggendo la memoria video dal Bus.
+// Machine e' un PC/XT: CPU, memoria, bus I/O e le periferiche di base. I campi
+// Pic/Pit/Ppi sono nil in una macchina "nuda" (New) e popolati da NewXT.
 type Machine struct {
 	CPU *cpu.CPU8086
 	Mem *memory.Bus
 	IO  *io.Ports
+
+	Pic *device.PIC
+	Pit *device.PIT
+	Ppi *device.PPI
+
+	// timerCycles e' il numero di colpi di clock del PIT fatti avanzare a ogni
+	// istruzione. Il modello non e' cycle-accurate: questa e' un'approssimazione
+	// del rapporto tra clock della CPU e del timer, sufficiente a un tick
+	// periodico credibile.
+	timerCycles int
 }
 
-// New crea una macchina con CPU al profilo 8088 (default), memoria da 1 MB e bus
-// I/O vuoto. Dopo il reset la CPU parte dal vettore 0xFFFF0, dove va caricato il
-// BIOS con Mem.LoadROM.
+// New crea una macchina "nuda": CPU al profilo 8088, memoria da 1 MB, bus I/O
+// vuoto, nessuna periferica. Utile per i test di basso livello.
 func New() *Machine {
-	m := &Machine{
-		Mem: memory.New(),
-		IO:  io.New(),
-	}
+	m := &Machine{Mem: memory.New(), IO: io.New()}
 	c := cpu.NewCPU8086()
 	c.Mem = m.Mem
 	c.IO = m.IO
@@ -32,11 +39,59 @@ func New() *Machine {
 	return m
 }
 
+// NewXT crea un PC/XT completo delle periferiche di base, gia' cablate e mappate
+// alle porte canoniche:
+//
+//   - 8259 PIC  -> 0x20-0x21
+//   - 8253 PIT  -> 0x40-0x43 (uscita del contatore 0 collegata a IRQ0)
+//   - 8255 PPI  -> 0x60-0x63
+//
+// Dopo il reset la CPU parte dal vettore 0xFFFF0, dove va caricato il BIOS con
+// Mem.LoadROM.
+func NewXT() *Machine {
+	m := New()
+	m.Pic = device.NewPIC()
+	m.Pit = device.NewPIT()
+	m.Ppi = device.NewPPI()
+
+	// L'uscita del contatore 0 del timer alza IRQ0 sul PIC.
+	m.Pit.IRQ0 = func() { m.Pic.RaiseIRQ(0) }
+
+	m.IO.Map(0x20, 0x21, m.Pic)
+	m.IO.Map(0x40, 0x43, m.Pit)
+	m.IO.Map(0x60, 0x63, m.Ppi)
+
+	m.timerCycles = 1
+	return m
+}
+
 // Map collega una periferica a un intervallo di porte I/O.
 func (m *Machine) Map(lo, hi uint16, dev io.Device) { m.IO.Map(lo, hi, dev) }
 
-// Step esegue una singola istruzione.
-func (m *Machine) Step() error { return m.CPU.Step() }
+// Step esegue un passo della macchina: fa avanzare il timer, serve un eventuale
+// interrupt hardware riconosciuto dal PIC (se IF abilitato), altrimenti esegue
+// una istruzione. In HALT senza interrupt il tempo avanza ma non si esegue.
+func (m *Machine) Step() error {
+	if m.Pit != nil {
+		m.Pit.Tick(m.timerCycles)
+	}
+	if m.Pic != nil && m.Pic.Pending() && m.CPU.InterruptsEnabled() {
+		m.CPU.Interrupt(m.Pic.Acknowledge())
+		return nil
+	}
+	if m.CPU.Halted {
+		return nil // in attesa di un interrupt: nessuna istruzione, ma il timer gira
+	}
+	return m.CPU.Step()
+}
 
-// Run esegue fino a maxSteps istruzioni o fino a HALT.
-func (m *Machine) Run(maxSteps int) (int, error) { return m.CPU.Run(maxSteps) }
+// Run esegue fino a maxSteps passi. A differenza di cpu.Run non si ferma su HALT,
+// perche' un interrupt puo' risvegliare la CPU; spetta al chiamante limitare i passi.
+func (m *Machine) Run(maxSteps int) (int, error) {
+	for i := 0; i < maxSteps; i++ {
+		if err := m.Step(); err != nil {
+			return i, err
+		}
+	}
+	return maxSteps, nil
+}
