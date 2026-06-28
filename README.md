@@ -16,10 +16,15 @@ Fatto e testato (`go test ./...` verde):
   option ROM) e RAM scrivibile; soddisfa `cpu.Bus`.
 - **`io`** — dispatcher dello spazio di I/O che instrada per intervallo di porte
   verso le periferiche (`Device`); soddisfa `cpu.Ports`. Porte non mappate: 0xFF.
-- **`device`** — periferiche XT: **8259 PIC** (controllore interrupt, porte
-  0x20-0x21), **8253 PIT** (timer, 0x40-0x43, contatore 0 → IRQ0), **8255 PPI**
-  (tastiera/speaker/DIP, 0x60-0x63), **MDA** (testo monocromatico 80x25 col 6845,
-  0x3B4-0x3BB, RAM video a 0xB0000) e il latch **POST** (0x80).
+- **`device`** — periferiche XT: **8237 DMA** (0x00-0x0F, pagine 0x81-0x8F),
+  **8259 PIC** (interrupt, 0x20-0x21), **8253 PIT** (timer, 0x40-0x43, → IRQ0),
+  **8255 PPI** (tastiera/speaker/DIP, 0x60-0x63), **MDA** (testo 80x25 col 6845,
+  0x3B4-0x3BB, RAM a 0xB0000), **FDC NEC 765** (floppy, 0x3F0-0x3F7, → IRQ6 via DMA
+  canale 2) e il latch **POST** (0x80).
+- **`disk`** — immagini floppy raw con geometria standard (360 KB … 1.44 MB) e
+  conversione CHS.
+- **`cmd/retronet-pc`** — CLI: carica un BIOS (e un floppy) ed esegue, mostrando
+  schermo e codice POST.
 - **`machine`** — `NewXT()` assembla CPU + memoria + I/O + periferiche già cablate
   e gestisce il **percorso degli interrupt** PIT → PIC → CPU. Dopo il reset la CPU
   parte dal vettore `0xFFFF0`, dove si carica il BIOS con `Mem.LoadROM`.
@@ -38,11 +43,11 @@ m.Run(2000) // il gestore IRQ0 viene eseguito a ogni tick del timer
 
 ## Roadmap
 
-- Integrazione interrupt **8259/8253/8255** ✅ (percorso PIT → PIC → CPU testato).
-- Video **MDA** (testo 80x25 col 6845, `Machine.Screen()`) ✅; **CGA** (colore e
-  grafica) da fare.
-- Controller floppy **NEC 765** e boot di un **BIOS open** XT-compatibile
-  (GLaBIOS / Super PC-XT, redistribuibili) fino al prompt. Le ROM restano fuori dal repo.
+- Interrupt **8259/8253/8255** ✅; **DMA 8237** + **FDC 765** + immagini floppy ✅.
+- **Boot di un BIOS reale** ✅: GLaBIOS esegue il POST e disegna sull'MDA (RAM,
+  video Mono, CPU 8088, FDD). Vedi [docs/architettura.md](docs/architettura.md).
+- Da fare: **controllore tastiera** (PPI + IRQ1) per superare l'errore POST KB e
+  proseguire fino al boot dal floppy; **CGA**; affinamento test DMA.
 
 ## Sviluppo locale (multi-repo)
 

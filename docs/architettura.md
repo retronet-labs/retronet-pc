@@ -36,11 +36,14 @@ risiede il punto d'ingresso del BIOS.
 
 | Porte         | Periferica | Note                                   |
 |---------------|------------|----------------------------------------|
+| `0x00`–`0x0F` | 8237 DMA   | indirizzo/conteggio/modo/maschera      |
 | `0x20`–`0x21` | 8259 PIC   | comandi / maschera                     |
 | `0x40`–`0x43` | 8253 PIT   | contatori 0-2 / parola di controllo    |
 | `0x60`–`0x63` | 8255 PPI   | tastiera, speaker, DIP switch          |
 | `0x80`        | POST       | latch diagnostico (codici di avvio)    |
+| `0x81`–`0x8F` | 8237 DMA   | registri di pagina                     |
 | `0x3B4`–`0x3BB` | MDA (6845) | indice/dato CRTC, modo, stato        |
+| `0x3F0`–`0x3F7` | FDC (765) | controllore floppy (DOR/MSR/dati)     |
 
 `io.Ports` instrada ogni accesso alla periferica il cui intervallo contiene la
 porta; le porte non mappate leggono `0xFF` e ignorano le scritture.
@@ -69,13 +72,25 @@ un'approssimazione del rapporto tra il clock della CPU (~4,77 MHz) e quello del
 timer (~1,19 MHz), sufficiente a un tick periodico credibile per far girare il
 software, ma non a riprodurre tempi esatti.
 
+## Avvio di un BIOS reale
+
+Con un BIOS open XT-compatibile (es. **GLaBIOS**, GPLv3) caricato con `LoadBIOS`,
+la macchina esegue il POST e disegna sull'MDA: rileva RAM (640 KB), tipo video
+(Mono), CPU (8088) e il numero di floppy. Le ROM **non** sono incluse nel repo:
+
+```bash
+# scaricare una ROM GLaBIOS (es. variante 8X) da
+#   https://github.com/640-KB/GLaBIOS/releases
+go run ./cmd/retronet-pc -bios GLABIOS_x.x.x_8X.ROM -floppy disco.img
+```
+
 ## Limiti attuali e prossimi passi
 
-- Periferiche minime (PIC singolo, PIT/PPI in versione funzionale): le sottigliezze
-  elettriche delle modalità del PIT e la matrice completa dei DIP switch della PPI
-  non sono riprodotte.
+- DMA (8237) e FDC (765) sono in versione **funzionale**: i registri sono fedeli e
+  il floppy legge/scrive settori via DMA canale 2, ma il trasferimento avviene in
+  blocco (non ciclo per ciclo) e il refresh della DRAM non è simulato.
 - Video: l'**MDA** (testo 80x25 monocromatico) è implementato col 6845 e un render
-  testuale dello schermo (`Machine.Screen()`); manca la **CGA** (testo a colori e
-  grafica).
-- Mancano il controller floppy (NEC 765) e il boot di un BIOS open
-  XT-compatibile: sono i prossimi moduli della roadmap.
+  testuale (`Machine.Screen()`); manca la **CGA** (colori e grafica).
+- **Tastiera**: manca il controllore di tastiera (PPI + IRQ1 + self-test): per
+  questo il POST del BIOS segnala un errore KB e attende un tasto. Con la tastiera
+  e il superamento del test DMA il BIOS proseguirebbe fino al boot dal floppy.
