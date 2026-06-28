@@ -18,7 +18,8 @@ Fatto e testato (`go test ./...` verde):
   verso le periferiche (`Device`); soddisfa `cpu.Ports`. Porte non mappate: 0xFF.
 - **`device`** — periferiche XT: **8259 PIC** (controllore interrupt, porte
   0x20-0x21), **8253 PIT** (timer, 0x40-0x43, contatore 0 → IRQ0), **8255 PPI**
-  (tastiera/speaker/DIP, 0x60-0x63) e il latch **POST** (0x80).
+  (tastiera/speaker/DIP, 0x60-0x63), **MDA** (testo monocromatico 80x25 col 6845,
+  0x3B4-0x3BB, RAM video a 0xB0000) e il latch **POST** (0x80).
 - **`machine`** — `NewXT()` assembla CPU + memoria + I/O + periferiche già cablate
   e gestisce il **percorso degli interrupt** PIT → PIC → CPU. Dopo il reset la CPU
   parte dal vettore `0xFFFF0`, dove si carica il BIOS con `Mem.LoadROM`.
@@ -38,10 +39,10 @@ m.Run(2000) // il gestore IRQ0 viene eseguito a ogni tick del timer
 ## Roadmap
 
 - Integrazione interrupt **8259/8253/8255** ✅ (percorso PIT → PIC → CPU testato).
-- Video: **6845** CRTC + buffer testo **CGA/MDA** con render; controller floppy
-  **NEC 765**.
-- Boot di un **BIOS open** XT-compatibile (GLaBIOS / Super PC-XT, redistribuibili)
-  fino al prompt. Le ROM restano fuori dal repo.
+- Video **MDA** (testo 80x25 col 6845, `Machine.Screen()`) ✅; **CGA** (colore e
+  grafica) da fare.
+- Controller floppy **NEC 765** e boot di un **BIOS open** XT-compatibile
+  (GLaBIOS / Super PC-XT, redistribuibili) fino al prompt. Le ROM restano fuori dal repo.
 
 ## Sviluppo locale (multi-repo)
 

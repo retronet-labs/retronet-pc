@@ -40,6 +40,7 @@ risiede il punto d'ingresso del BIOS.
 | `0x40`–`0x43` | 8253 PIT   | contatori 0-2 / parola di controllo    |
 | `0x60`–`0x63` | 8255 PPI   | tastiera, speaker, DIP switch          |
 | `0x80`        | POST       | latch diagnostico (codici di avvio)    |
+| `0x3B4`–`0x3BB` | MDA (6845) | indice/dato CRTC, modo, stato        |
 
 `io.Ports` instrada ogni accesso alla periferica il cui intervallo contiene la
 porta; le porte non mappate leggono `0xFF` e ignorano le scritture.
@@ -73,5 +74,8 @@ software, ma non a riprodurre tempi esatti.
 - Periferiche minime (PIC singolo, PIT/PPI in versione funzionale): le sottigliezze
   elettriche delle modalità del PIT e la matrice completa dei DIP switch della PPI
   non sono riprodotte.
-- Mancano video (6845 + CGA/MDA), controller floppy (NEC 765) e il boot di un
-  BIOS open XT-compatibile: sono i prossimi moduli della roadmap.
+- Video: l'**MDA** (testo 80x25 monocromatico) è implementato col 6845 e un render
+  testuale dello schermo (`Machine.Screen()`); manca la **CGA** (testo a colori e
+  grafica).
+- Mancano il controller floppy (NEC 765) e il boot di un BIOS open
+  XT-compatibile: sono i prossimi moduli della roadmap.
