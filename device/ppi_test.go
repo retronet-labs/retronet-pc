@@ -81,6 +81,48 @@ func TestPPIKeyboardDeliversInOrder(t *testing.T) {
 	}
 }
 
+// drainKeys svuota la coda tastiera simulando l'handshake INT9, raccogliendo i
+// codici nell'ordine di consegna.
+func drainKeys(p *PPI, n int) []byte {
+	var got []byte
+	for i := 0; i < n; i++ {
+		got = append(got, p.In8(0x60))
+		p.Out8(0x61, 0x80) // ack
+		p.Out8(0x61, 0x00) // riabilita -> ritardo
+		p.Tick(kbReloadDelay)
+	}
+	return got
+}
+
+func TestPPIShiftedKeys(t *testing.T) {
+	// 'A' = Shift+'a': make Shift, make/break 'a', break Shift.
+	p := NewPPI()
+	p.Type("A")
+	got := drainKeys(p, 4)
+	want := []byte{scShiftMake, 0x1E, 0x9E, scShiftBreak}
+	if string(got) != string(want) {
+		t.Errorf("Type(\"A\") = % X, atteso % X", got, want)
+	}
+
+	// '!' = Shift+'1'.
+	p = NewPPI()
+	p.Type("!")
+	got = drainKeys(p, 4)
+	want = []byte{scShiftMake, 0x02, 0x82, scShiftBreak}
+	if string(got) != string(want) {
+		t.Errorf("Type(\"!\") = % X, atteso % X", got, want)
+	}
+
+	// minuscola senza Shift: solo make/break.
+	p = NewPPI()
+	p.Type("z")
+	got = drainKeys(p, 2)
+	want = []byte{0x2C, 0xAC}
+	if string(got) != string(want) {
+		t.Errorf("Type(\"z\") = % X, atteso % X", got, want)
+	}
+}
+
 func TestPPISpeaker(t *testing.T) {
 	p := NewPPI()
 	p.Out8(0x61, 0x03) // PB0+PB1

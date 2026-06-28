@@ -100,8 +100,11 @@ Perche' il POST passi, oltre a CPU/PIC/PIT/PPI/MDA servono due dettagli:
   codice di self-test `0xAA` con IRQ1; alzare PB7 azzera il latch. Senza, il POST
   segnala errore KB. L'**input** vero usa una coda di codici di scansione
   (`PressScancode`, helper `Type`) consegnati uno per handshake INT9 con un ritardo
-  di trasmissione (altrimenti il gestore del BIOS rientrerebbe invertendo i tasti).
-  Da CLI: `-keys "testo"`.
+  di trasmissione (il ritardo va avviato sull'ack PB7, altrimenti il gestore INT 9
+  del BIOS — che fa STI presto — rientrerebbe annidato sfasando ordine e tasti
+  modificatori). I caratteri che richiedono lo **Shift** (maiuscole e simboli del
+  layout US) vengono inviati racchiusi tra make/break dello Shift. Da CLI:
+  `-keys "testo"`.
 - **Refresh DRAM** (test TC0): il contatore 1 del PIT pilota cicli DMA sul
   canale 0 (conteggio `0xFFFF`); al Terminal Count si accende il bit TC0 nello
   stato del DMA (porta 0x08), che il BIOS verifica.

@@ -38,10 +38,11 @@ type PPI struct {
 }
 
 // kbReloadDelay modella il ritardo di trasmissione seriale della tastiera tra un
-// codice e il successivo. Senza, presentare subito il codice seguente farebbe
-// rientrare il gestore INT 9 del BIOS prima che abbia finito (i tasti
-// arriverebbero in ordine invertito).
-const kbReloadDelay = 4000
+// codice e il successivo. Dev'essere abbastanza ampio da far arrivare il codice
+// seguente solo DOPO che il gestore INT 9 del BIOS ha finito: l'INT 9 riabilita
+// gli interrupt presto (STI), quindi un codice troppo ravvicinato rientrerebbe
+// annidato, sfasando l'ordine e lo stato dei tasti modificatori (Shift/Ctrl).
+const kbReloadDelay = 12000
 
 // NewPPI crea una PPI con i DIP switch a zero (configurazione da impostare).
 func NewPPI() *PPI { return &PPI{} }
@@ -72,15 +73,15 @@ func (p *PPI) Out8(port uint16, value byte) {
 	case 1: // Port B
 		old := p.portB
 		p.portB = value
-		// Clear/ack della tastiera (PB7 0->1): il BIOS ha letto il codice; azzera
-		// il latch (cosi' non sembra un tasto bloccato).
+		// Clear/ack della tastiera (PB7 0->1): il BIOS ha letto il codice; azzera il
+		// latch e avvia subito il ritardo di trasmissione, cosi' il codice seguente
+		// non viene presentato prima che il gestore INT 9 abbia finito. (L'ack del
+		// BIOS e' un impulso PB7 0->1->0: il ritardo va avviato sul fronte di
+		// salita, non sulla discesa, altrimenti tra i due fronti Tick consegnerebbe
+		// subito il prossimo codice.)
 		if value&0x80 != 0 && old&0x80 == 0 {
 			p.KeyboardData = 0
 			p.kbCurrent = 0
-		}
-		// Riabilitazione (PB7 1->0): la tastiera torna leggibile; il prossimo codice
-		// in coda arrivera' dopo il ritardo di trasmissione (gestito da Tick).
-		if value&0x80 == 0 && old&0x80 != 0 {
 			p.kbDelay = kbReloadDelay
 		}
 		// Reset della tastiera: il BIOS tiene basso il clock (PB6=0) e poi lo

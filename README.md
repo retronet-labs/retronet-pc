@@ -50,9 +50,10 @@ m.Run(2000) // il gestore IRQ0 viene eseguito a ogni tick del timer
   sull'MDA e **avvia dal floppy** (settore di boot via FDC→DMA→0x7C00, con servizi
   BIOS come `INT 10h`). Vedi [docs/architettura.md](docs/architettura.md).
 - **Input da tastiera** ✅: coda di codici di scansione con ritardo di trasmissione
-  (handshake INT9); da CLI `-keys "testo"` digita dopo l'avvio.
-- Da fare: **CGA**, tasti modificatori (Shift/Ctrl) e tasti estesi, controller
-  disco fisso, timing più fedele.
+  (handshake INT9), con **Shift** per maiuscole e simboli (layout US); da CLI
+  `-keys "testo"` digita dopo l'avvio.
+- Da fare: **CGA**, tasti **Ctrl/Alt** e tasti estesi, controller disco fisso,
+  timing più fedele.
 
 ## Sviluppo locale (multi-repo)
 
