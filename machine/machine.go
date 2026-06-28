@@ -27,9 +27,10 @@ type Machine struct {
 	Post  *device.PostCode
 
 	// timerCycles e' il numero di colpi di clock del PIT fatti avanzare a ogni
-	// istruzione. Il modello non e' cycle-accurate: questa e' un'approssimazione
-	// del rapporto tra clock della CPU e del timer, sufficiente a un tick
-	// periodico credibile.
+	// istruzione. Il modello non e' cycle-accurate: e' un'approssimazione del
+	// rapporto tra clock della CPU (~4,77 MHz) e del PIT (~1,19 MHz). Il valore (8)
+	// e' scelto perche' il refresh DRAM (contatore 1 -> DMA canale 0) raggiunga il
+	// Terminal Count in tempo per il test DMA del POST del BIOS.
 	timerCycles int
 }
 
@@ -66,11 +67,16 @@ func NewXT() *Machine {
 
 	// L'uscita del contatore 0 del timer alza IRQ0 sul PIC.
 	m.Pit.IRQ0 = func() { m.Pic.RaiseIRQ(0) }
+	// L'uscita del contatore 1 pilota il refresh DRAM sul DMA canale 0.
+	m.Pit.Counter1Out = func() { m.Dma.RefreshCycle() }
 
 	// Il controllore floppy trasferisce via DMA canale 2 e segnala IRQ6.
 	m.Fdc.DMA = m.Dma
 	m.Fdc.Mem = m.Mem
 	m.Fdc.IRQ6 = func() { m.Pic.RaiseIRQ(6) }
+
+	// La tastiera (via PPI) segnala i byte con IRQ1.
+	m.Ppi.IRQ1 = func() { m.Pic.RaiseIRQ(1) }
 
 	// DIP switch SW1: tipo video monocromatico (MDA) nei bit 4-5.
 	m.Ppi.DIPSwitches = 0x30
@@ -84,7 +90,7 @@ func NewXT() *Machine {
 	m.IO.Map(0x3B4, 0x3BB, m.Video)
 	m.IO.Map(0x3F0, 0x3F7, m.Fdc)
 
-	m.timerCycles = 1
+	m.timerCycles = 8
 	return m
 }
 

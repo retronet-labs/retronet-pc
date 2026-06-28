@@ -43,11 +43,13 @@ m.Run(2000) // il gestore IRQ0 viene eseguito a ogni tick del timer
 
 ## Roadmap
 
-- Interrupt **8259/8253/8255** ✅; **DMA 8237** + **FDC 765** + immagini floppy ✅.
-- **Boot di un BIOS reale** ✅: GLaBIOS esegue il POST e disegna sull'MDA (RAM,
-  video Mono, CPU 8088, FDD). Vedi [docs/architettura.md](docs/architettura.md).
-- Da fare: **controllore tastiera** (PPI + IRQ1) per superare l'errore POST KB e
-  proseguire fino al boot dal floppy; **CGA**; affinamento test DMA.
+- Interrupt **8259/8253/8255** ✅; **DMA 8237** + **FDC 765** + immagini floppy ✅;
+  tastiera (self-test) e refresh DRAM ✅.
+- **Boot di un BIOS reale** ✅: GLaBIOS esegue il **POST senza errori**, disegna
+  sull'MDA e **avvia dal floppy** (settore di boot via FDC→DMA→0x7C00, con servizi
+  BIOS come `INT 10h`). Vedi [docs/architettura.md](docs/architettura.md).
+- Da fare: input vero da **tastiera** (codici di scansione), **CGA**, controller
+  disco fisso, timing più fedele.
 
 ## Sviluppo locale (multi-repo)
 

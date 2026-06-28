@@ -75,14 +75,26 @@ software, ma non a riprodurre tempi esatti.
 ## Avvio di un BIOS reale
 
 Con un BIOS open XT-compatibile (es. **GLaBIOS**, GPLv3) caricato con `LoadBIOS`,
-la macchina esegue il POST e disegna sull'MDA: rileva RAM (640 KB), tipo video
-(Mono), CPU (8088) e il numero di floppy. Le ROM **non** sono incluse nel repo:
+la macchina esegue il **POST senza errori**, disegna sull'MDA (RAM 640 KB, video
+Mono, CPU 8088, numero di floppy) e **avvia dal floppy**: legge il settore di boot
+(FDC → DMA canale 2 → `0x0000:0x7C00`), vi salta e ne esegue il codice, comprese le
+chiamate ai servizi del BIOS (es. `INT 10h` per il video). Le ROM **non** sono
+incluse nel repo:
 
 ```bash
 # scaricare una ROM GLaBIOS (es. variante 8X) da
 #   https://github.com/640-KB/GLaBIOS/releases
 go run ./cmd/retronet-pc -bios GLABIOS_x.x.x_8X.ROM -floppy disco.img
 ```
+
+Perche' il POST passi, oltre a CPU/PIC/PIT/PPI/MDA servono due dettagli:
+
+- **Tastiera** (via PPI): al rilascio del clock (PB6 0->1) la tastiera invia il
+  codice di self-test `0xAA` con IRQ1; alzare PB7 azzera il latch. Senza, il POST
+  segnala errore KB.
+- **Refresh DRAM** (test TC0): il contatore 1 del PIT pilota cicli DMA sul
+  canale 0 (conteggio `0xFFFF`); al Terminal Count si accende il bit TC0 nello
+  stato del DMA (porta 0x08), che il BIOS verifica.
 
 ## Limiti attuali e prossimi passi
 
@@ -91,6 +103,5 @@ go run ./cmd/retronet-pc -bios GLABIOS_x.x.x_8X.ROM -floppy disco.img
   blocco (non ciclo per ciclo) e il refresh della DRAM non è simulato.
 - Video: l'**MDA** (testo 80x25 monocromatico) è implementato col 6845 e un render
   testuale (`Machine.Screen()`); manca la **CGA** (colori e grafica).
-- **Tastiera**: manca il controllore di tastiera (PPI + IRQ1 + self-test): per
-  questo il POST del BIOS segnala un errore KB e attende un tasto. Con la tastiera
-  e il superamento del test DMA il BIOS proseguirebbe fino al boot dal floppy.
+- La **tastiera** consegna solo il self-test `0xAA` (sufficiente al POST): manca
+  l'iniezione di veri codici di scansione (input da tastiera).

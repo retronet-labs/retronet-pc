@@ -51,6 +51,48 @@ func TestVideoTextOutput(t *testing.T) {
 	}
 }
 
+// Lettura di un settore floppy attraverso il routing delle porte della macchina:
+// programmazione del DMA (0x00-0x0F, pagina 0x81) e del FDC (0x3F0-0x3F7), con il
+// settore che finisce in memoria via DMA canale 2.
+func TestMachineFloppyRead(t *testing.T) {
+	m := NewXT()
+	img := make([]byte, 360*1024)
+	for i := 0; i < 512; i++ {
+		img[i] = byte(i)
+	}
+	if err := m.LoadFloppy(img); err != nil {
+		t.Fatal(err)
+	}
+
+	// DMA canale 2 -> indirizzo fisico 0x00500, 512 byte.
+	m.IO.Out8(0x0A, 0x06)
+	m.IO.Out8(0x0C, 0x00)
+	m.IO.Out8(0x04, 0x00)
+	m.IO.Out8(0x04, 0x05)
+	m.IO.Out8(0x81, 0x00)
+	m.IO.Out8(0x05, 0xFF)
+	m.IO.Out8(0x05, 0x01)
+	m.IO.Out8(0x0B, 0x46)
+	m.IO.Out8(0x0A, 0x02)
+
+	m.IO.Out8(0x3F2, 0x1C) // DOR: motore, DMA/IRQ
+	for _, b := range []byte{0x06, 0x00, 0x00, 0x00, 0x01, 0x02, 0x01, 0x2A, 0xFF} {
+		m.IO.Out8(0x3F5, b) // Read Data + parametri
+	}
+	st0 := m.IO.In8(0x3F5)
+	for i := 1; i < 7; i++ {
+		m.IO.In8(0x3F5)
+	}
+	if st0&0xC0 != 0 {
+		t.Fatalf("ST0 anomalo: %#02x", st0)
+	}
+	for i := 0; i < 512; i++ {
+		if got := m.Mem.Read8(0x0500 + uint32(i)); got != img[i] {
+			t.Fatalf("byte %d = %#02x, atteso %#02x", i, got, img[i])
+		}
+	}
+}
+
 // All'accensione la CPU parte dal reset vector 0xFFFF0, dove va il BIOS in ROM.
 // Qui un mini-"BIOS" in ROM scrive un codice POST e si ferma.
 func TestBootFromResetVector(t *testing.T) {
