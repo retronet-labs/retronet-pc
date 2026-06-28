@@ -137,6 +137,9 @@ func (m *Machine) Step() error {
 	if m.Pit != nil {
 		m.Pit.Tick(m.timerCycles)
 	}
+	if m.Ppi != nil {
+		m.Ppi.Tick(m.timerCycles)
+	}
 	if m.Pic != nil && m.Pic.Pending() && m.CPU.InterruptsEnabled() {
 		m.CPU.Interrupt(m.Pic.Acknowledge())
 		return nil

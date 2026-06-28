@@ -57,6 +57,30 @@ func TestPPIKeyboardReset(t *testing.T) {
 	}
 }
 
+// I codici di scansione digitati devono arrivare in ordine FIFO, uno per ciclo di
+// handshake INT9 (lettura + impulso PB7), con il ritardo di trasmissione tra uno e
+// l'altro. (Regressione: senza ritardo i tasti arrivavano invertiti.)
+func TestPPIKeyboardDeliversInOrder(t *testing.T) {
+	p := NewPPI()
+	p.Type("ab") // make/break di 'a' e 'b'
+
+	want := []byte{0x1E, 0x9E, 0x30, 0xB0}
+	for i, w := range want {
+		if got := p.In8(0x60); got != w {
+			t.Fatalf("codice %d = %#02x, atteso %#02x", i, got, w)
+		}
+		// Handshake del gestore INT9: ack (PB7 0->1) e riabilitazione (PB7 1->0).
+		p.Out8(0x61, 0x80)
+		p.Out8(0x61, 0x00)
+		// Il codice successivo non arriva prima del ritardo di trasmissione.
+		p.Tick(kbReloadDelay / 2)
+		if i+1 < len(want) && p.In8(0x60) != 0 {
+			t.Fatalf("codice %d presentato troppo presto", i+1)
+		}
+		p.Tick(kbReloadDelay)
+	}
+}
+
 func TestPPISpeaker(t *testing.T) {
 	p := NewPPI()
 	p.Out8(0x61, 0x03) // PB0+PB1

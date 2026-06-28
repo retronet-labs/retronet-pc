@@ -48,7 +48,9 @@ m.Run(2000) // il gestore IRQ0 viene eseguito a ogni tick del timer
 - **Boot di un BIOS reale** ✅: GLaBIOS esegue il **POST senza errori**, disegna
   sull'MDA e **avvia dal floppy** (settore di boot via FDC→DMA→0x7C00, con servizi
   BIOS come `INT 10h`). Vedi [docs/architettura.md](docs/architettura.md).
-- Da fare: input vero da **tastiera** (codici di scansione), **CGA**, controller
+- **Input da tastiera** ✅: coda di codici di scansione con ritardo di trasmissione
+  (handshake INT9); da CLI `-keys "testo"` digita dopo l'avvio.
+- Da fare: **CGA**, tasti modificatori (Shift/Ctrl) e tasti estesi, controller
   disco fisso, timing più fedele.
 
 ## Sviluppo locale (multi-repo)

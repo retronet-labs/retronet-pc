@@ -91,7 +91,10 @@ Perche' il POST passi, oltre a CPU/PIC/PIT/PPI/MDA servono due dettagli:
 
 - **Tastiera** (via PPI): al rilascio del clock (PB6 0->1) la tastiera invia il
   codice di self-test `0xAA` con IRQ1; alzare PB7 azzera il latch. Senza, il POST
-  segnala errore KB.
+  segnala errore KB. L'**input** vero usa una coda di codici di scansione
+  (`PressScancode`, helper `Type`) consegnati uno per handshake INT9 con un ritardo
+  di trasmissione (altrimenti il gestore del BIOS rientrerebbe invertendo i tasti).
+  Da CLI: `-keys "testo"`.
 - **Refresh DRAM** (test TC0): il contatore 1 del PIT pilota cicli DMA sul
   canale 0 (conteggio `0xFFFF`); al Terminal Count si accende il bit TC0 nello
   stato del DMA (porta 0x08), che il BIOS verifica.
@@ -103,5 +106,5 @@ Perche' il POST passi, oltre a CPU/PIC/PIT/PPI/MDA servono due dettagli:
   blocco (non ciclo per ciclo) e il refresh della DRAM non è simulato.
 - Video: l'**MDA** (testo 80x25 monocromatico) è implementato col 6845 e un render
   testuale (`Machine.Screen()`); manca la **CGA** (colori e grafica).
-- La **tastiera** consegna solo il self-test `0xAA` (sufficiente al POST): manca
-  l'iniezione di veri codici di scansione (input da tastiera).
+- La **tastiera** gestisce self-test e input di codici di scansione (layout US,
+  minuscole + cifre + spazio/invio); mancano Shift/Ctrl/Alt e i tasti estesi.

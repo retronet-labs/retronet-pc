@@ -17,6 +17,7 @@ func main() {
 	bios := flag.String("bios", "", "file ROM del BIOS (caricato in cima al 1 MB)")
 	floppy := flag.String("floppy", "", "immagine floppy raw per il drive A:")
 	steps := flag.Int("steps", 20_000_000, "numero massimo di passi da eseguire")
+	keys := flag.String("keys", "", "testo da digitare sulla tastiera dopo l'avvio")
 	flag.Parse()
 
 	if *bios == "" {
@@ -46,6 +47,13 @@ func main() {
 		}
 		fmt.Printf("floppy A: %d byte (%dx%dx%d)\n", len(img),
 			m.Fdc.Disk.Geo.Cylinders, m.Fdc.Disk.Geo.Heads, m.Fdc.Disk.Geo.Sectors)
+	}
+
+	if *keys != "" {
+		// Lascia completare POST e avvio, poi "digita" il testo: il ritardo di
+		// trasmissione della tastiera scandisce la consegna dei codici.
+		m.Run(8_000_000)
+		m.Ppi.Type(*keys)
 	}
 
 	executed, err := m.Run(*steps)
