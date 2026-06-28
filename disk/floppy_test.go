@@ -25,8 +25,21 @@ func TestGeometryFromSize(t *testing.T) {
 			t.Errorf("%d byte: geometria %dx%d, attesa %d cilindri %d settori", c.size, f.Geo.Cylinders, f.Geo.Sectors, c.cyl, c.sects)
 		}
 	}
-	if _, err := NewFloppy(make([]byte, 12345)); err == nil {
-		t.Error("dimensione non standard dovrebbe dare errore")
+	// Un'immagine piu' piccola (es. boot sector) viene riempita al formato minimo.
+	boot := make([]byte, 512)
+	boot[0] = 0xEB
+	f, err := NewFloppy(boot)
+	if err != nil {
+		t.Fatalf("boot sector: %v", err)
+	}
+	if f.Geo.Bytes() != 360*1024 {
+		t.Errorf("boot sector riempito a %d byte, atteso 360 KB", f.Geo.Bytes())
+	}
+	if s, _ := f.ReadSector(0, 0, 1); s[0] != 0xEB {
+		t.Errorf("primo byte del settore di boot perso nel padding")
+	}
+	if _, err := NewFloppy(make([]byte, 2_000_000)); err == nil {
+		t.Error("immagine piu' grande del massimo dovrebbe dare errore")
 	}
 }
 

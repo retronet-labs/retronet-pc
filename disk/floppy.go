@@ -29,15 +29,25 @@ type Floppy struct {
 	Geo  Geometry
 }
 
-// NewFloppy avvolge un'immagine raw, deducendo la geometria dalla dimensione.
-// Restituisce errore se la dimensione non corrisponde a un formato noto.
+// NewFloppy avvolge un'immagine raw, deducendo la geometria dalla dimensione. Se
+// la dimensione corrisponde a un formato noto la usa direttamente; se e' piu'
+// piccola (es. un boot sector di 512 byte) riempie con zeri fino al formato
+// standard piu' piccolo che la contiene. Restituisce errore solo se l'immagine e'
+// piu' grande del formato massimo.
 func NewFloppy(data []byte) (*Floppy, error) {
 	for _, g := range standardGeometries {
 		if g.Bytes() == len(data) {
 			return &Floppy{data: data, Geo: g}, nil
 		}
 	}
-	return nil, fmt.Errorf("dimensione immagine non riconosciuta: %d byte", len(data))
+	for _, g := range standardGeometries {
+		if len(data) < g.Bytes() {
+			padded := make([]byte, g.Bytes())
+			copy(padded, data)
+			return &Floppy{data: padded, Geo: g}, nil
+		}
+	}
+	return nil, fmt.Errorf("immagine troppo grande: %d byte", len(data))
 }
 
 // offset calcola la posizione del settore CHS (settori 1-based) nell'immagine.
