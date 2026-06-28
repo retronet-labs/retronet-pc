@@ -85,7 +85,14 @@ incluse nel repo:
 # scaricare una ROM GLaBIOS (es. variante 8X) da
 #   https://github.com/640-KB/GLaBIOS/releases
 go run ./cmd/retronet-pc -bios GLABIOS_x.x.x_8X.ROM -floppy disco.img
+# ALU della CPU: -alu gate (default, porte logiche) oppure -alu native (piu' veloce)
+go run ./cmd/retronet-pc -bios GLABIOS_x.x.x_8X.ROM -floppy disco.img -alu native
 ```
+
+La CPU eredita da retronet-8086 le due ALU intercambiabili: di **default** la
+macchina usa l'ALU a **porte logiche** (`gate`) — sì, il BIOS gira davvero sui
+gate — ma con `-alu native` si passa all'ALU con operatori Go, identica nei
+risultati e piu' rapida.
 
 Perche' il POST passi, oltre a CPU/PIC/PIT/PPI/MDA servono due dettagli:
 

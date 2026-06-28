@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/retronet-labs/retronet-8086/cpu"
 	"github.com/retronet-labs/retronet-pc/machine"
 )
 
@@ -18,14 +19,18 @@ func main() {
 	floppy := flag.String("floppy", "", "immagine floppy raw per il drive A:")
 	steps := flag.Int("steps", 20_000_000, "numero massimo di passi da eseguire")
 	keys := flag.String("keys", "", "testo da digitare sulla tastiera dopo l'avvio")
+	alu := flag.String("alu", "gate", "backend ALU della CPU: gate (porte logiche) oppure native")
 	flag.Parse()
 
 	if *bios == "" {
-		fmt.Fprintln(os.Stderr, "uso: retronet-pc -bios <rom> [-floppy <img>] [-steps N]")
+		fmt.Fprintln(os.Stderr, "uso: retronet-pc -bios <rom> [-floppy <img>] [-alu gate|native] [-keys ...] [-steps N]")
 		os.Exit(2)
 	}
 
 	m := machine.NewXT()
+	if *alu == "native" {
+		m.CPU.SetALU(cpu.Native)
+	}
 
 	rom, err := os.ReadFile(*bios)
 	if err != nil {
