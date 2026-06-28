@@ -73,3 +73,28 @@ func TestMDAStartAddressScroll(t *testing.T) {
 		t.Errorf("con start=80 la riga 0 dovrebbe mostrare SECONDA, ho: %q", screen[:10])
 	}
 }
+
+func TestCGARenderAndPorts(t *testing.T) {
+	c := NewCGA()
+	if c.Base != 0xB8000 {
+		t.Fatalf("base CGA = %#X, attesa 0xB8000", c.Base)
+	}
+	mem := &fakeMem{}
+	mem.writeText(c.Base, 0, "CGA OK")
+	// Le porte CGA sono a 0x3D4-0x3DA.
+	c.Out8(0x3D4, 14)
+	c.Out8(0x3D5, 0x00)
+	c.Out8(0x3D4, 15)
+	c.Out8(0x3D5, 0x05)
+	if c.CursorOffset() != 0x0005 {
+		t.Errorf("cursore CGA = %#x", c.CursorOffset())
+	}
+	screen := c.Render(mem)
+	if !strings.HasPrefix(screen, "CGA OK") {
+		t.Errorf("render CGA = %q", screen[:6])
+	}
+	s1 := c.In8(0x3DA)
+	if c.In8(0x3DA) == s1 {
+		t.Errorf("stato CGA 0x3DA non alterna")
+	}
+}

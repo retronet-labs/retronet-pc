@@ -23,7 +23,8 @@ type Machine struct {
 	Ppi   *device.PPI
 	Dma   *device.DMA
 	Fdc   *device.FDC
-	Video *device.MDA
+	Video *device.TextVideo // adattatore attivo (per Screen())
+	cga   *device.TextVideo
 	Post  *device.PostCode
 
 	// timerCycles e' il numero di colpi di clock del PIT fatti avanzare a ogni
@@ -51,7 +52,8 @@ func New() *Machine {
 //   - 8259 PIC  -> 0x20-0x21
 //   - 8253 PIT  -> 0x40-0x43 (uscita del contatore 0 collegata a IRQ0)
 //   - 8255 PPI  -> 0x60-0x63
-//   - MDA       -> 0x3B4-0x3BB (testo monocromatico 80x25 a 0xB0000)
+//   - MDA       -> 0x3B4-0x3BB (testo monocromatico 80x25 a 0xB0000, default)
+//   - CGA       -> 0x3D4-0x3DB (testo a colori 80x25 a 0xB8000; attiva con UseCGA)
 //
 // Dopo il reset la CPU parte dal vettore 0xFFFF0, dove va caricato il BIOS con
 // Mem.LoadROM.
@@ -63,6 +65,7 @@ func NewXT() *Machine {
 	m.Dma = device.NewDMA()
 	m.Fdc = device.NewFDC()
 	m.Video = device.NewMDA()
+	m.cga = device.NewCGA()
 	m.Post = &device.PostCode{}
 
 	// Per un PC completo il default e' l'ALU native (piu' veloce); l'ALU a porte
@@ -90,9 +93,10 @@ func NewXT() *Machine {
 	m.IO.Map(0x20, 0x21, m.Pic)
 	m.IO.Map(0x40, 0x43, m.Pit)
 	m.IO.Map(0x60, 0x63, m.Ppi)
-	m.IO.Map(0x80, 0x80, m.Post) // latch diagnostico POST
-	m.IO.Map(0x81, 0x8F, m.Dma)  // registri di pagina del DMA (0x80 non usato dai canali)
-	m.IO.Map(0x3B4, 0x3BB, m.Video)
+	m.IO.Map(0x80, 0x80, m.Post)    // latch diagnostico POST
+	m.IO.Map(0x81, 0x8F, m.Dma)     // registri di pagina del DMA (0x80 non usato dai canali)
+	m.IO.Map(0x3B4, 0x3BB, m.Video) // MDA
+	m.IO.Map(0x3D4, 0x3DB, m.cga)   // CGA
 	m.IO.Map(0x3F0, 0x3F7, m.Fdc)
 
 	m.timerCycles = 8
@@ -123,8 +127,17 @@ func (m *Machine) LoadFloppy(image []byte) error {
 	return nil
 }
 
+// UseCGA rende attiva la scheda CGA: imposta i DIP switch sul video a colori
+// 80x25 e fa puntare Screen() alla RAM CGA. Da chiamare prima dell'avvio.
+func (m *Machine) UseCGA() {
+	m.Video = m.cga
+	if m.Ppi != nil {
+		m.Ppi.DIPSwitches = m.Ppi.DIPSwitches&^0x30 | 0x20 // bit 4-5 = 10: CGA 80x25
+	}
+}
+
 // Screen restituisce lo schermo testuale corrente (80x25) leggendo la RAM video
-// dall'MDA. Vuoto se la macchina non ha video.
+// dall'adattatore attivo. Vuoto se la macchina non ha video.
 func (m *Machine) Screen() string {
 	if m.Video == nil {
 		return ""

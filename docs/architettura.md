@@ -42,7 +42,8 @@ risiede il punto d'ingresso del BIOS.
 | `0x60`–`0x63` | 8255 PPI   | tastiera, speaker, DIP switch          |
 | `0x80`        | POST       | latch diagnostico (codici di avvio)    |
 | `0x81`–`0x8F` | 8237 DMA   | registri di pagina                     |
-| `0x3B4`–`0x3BB` | MDA (6845) | indice/dato CRTC, modo, stato        |
+| `0x3B4`–`0x3BB` | MDA (6845) | testo monocromatico (0xB0000)         |
+| `0x3D4`–`0x3DB` | CGA (6845) | testo a colori (0xB8000)              |
 | `0x3F0`–`0x3F7` | FDC (765) | controllore floppy (DOR/MSR/dati)     |
 
 `io.Ports` instrada ogni accesso alla periferica il cui intervallo contiene la
@@ -114,7 +115,8 @@ Perche' il POST passi, oltre a CPU/PIC/PIT/PPI/MDA servono due dettagli:
 - DMA (8237) e FDC (765) sono in versione **funzionale**: i registri sono fedeli e
   il floppy legge/scrive settori via DMA canale 2, ma il trasferimento avviene in
   blocco (non ciclo per ciclo) e il refresh della DRAM non è simulato.
-- Video: l'**MDA** (testo 80x25 monocromatico) è implementato col 6845 e un render
-  testuale (`Machine.Screen()`); manca la **CGA** (colori e grafica).
+- Video: **MDA** (0xB0000) e **CGA** (0xB8000) in modo testo 80x25, col 6845 e un
+  render testuale (`Machine.Screen()`); si sceglie con `UseCGA()` o `-video cga`. I
+  modi **grafici** della CGA non sono resi.
 - La **tastiera** gestisce self-test e input di codici di scansione (layout US,
   minuscole + cifre + spazio/invio); mancano Shift/Ctrl/Alt e i tasti estesi.

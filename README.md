@@ -19,9 +19,9 @@ Fatto e testato (`go test ./...` verde):
   verso le periferiche (`Device`); soddisfa `cpu.Ports`. Porte non mappate: 0xFF.
 - **`device`** — periferiche XT: **8237 DMA** (0x00-0x0F, pagine 0x81-0x8F),
   **8259 PIC** (interrupt, 0x20-0x21), **8253 PIT** (timer, 0x40-0x43, → IRQ0),
-  **8255 PPI** (tastiera/speaker/DIP, 0x60-0x63), **MDA** (testo 80x25 col 6845,
-  0x3B4-0x3BB, RAM a 0xB0000), **FDC NEC 765** (floppy, 0x3F0-0x3F7, → IRQ6 via DMA
-  canale 2) e il latch **POST** (0x80).
+  **8255 PPI** (tastiera/speaker/DIP, 0x60-0x63), **MDA** (testo 80x25, 0x3B4-0x3BB,
+  0xB0000) e **CGA** (testo 80x25, 0x3D4-0x3DB, 0xB8000), **FDC NEC 765** (floppy,
+  0x3F0-0x3F7, → IRQ6 via DMA canale 2) e il latch **POST** (0x80).
 - **`disk`** — immagini floppy raw con geometria standard (360 KB … 1.44 MB) e
   conversione CHS.
 - **`cmd/retronet-pc`** — CLI: carica un BIOS (e un floppy) ed esegue, mostrando
@@ -52,8 +52,9 @@ m.Run(2000) // il gestore IRQ0 viene eseguito a ogni tick del timer
 - **Input da tastiera** ✅: coda di codici di scansione con ritardo di trasmissione
   (handshake INT9), con **Shift** per maiuscole e simboli (layout US); da CLI
   `-keys "testo"` digita dopo l'avvio.
-- Da fare: **CGA**, tasti **Ctrl/Alt** e tasti estesi, controller disco fisso,
-  timing più fedele.
+- **Video MDA e CGA** ✅ (testo 80x25); `-video cga` o `Machine.UseCGA()`.
+- Da fare: modi **grafici CGA**, tasti **Ctrl/Alt** e tasti estesi, controller
+  disco fisso, timing più fedele.
 
 ## Sviluppo locale (multi-repo)
 
