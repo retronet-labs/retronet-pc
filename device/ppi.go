@@ -26,6 +26,10 @@ type PPI struct {
 	DIPSwitches byte
 	// KeyboardData e' l'ultimo codice di scansione presentato su Port A.
 	KeyboardData byte
+
+	// IRQ1 viene chiamato quando la tastiera ha un byte pronto (collegato al PIC
+	// dalla macchina).
+	IRQ1 func()
 }
 
 // NewPPI crea una PPI con i DIP switch a zero (configurazione da impostare).
@@ -55,7 +59,22 @@ func (p *PPI) In8(port uint16) byte {
 func (p *PPI) Out8(port uint16, value byte) {
 	switch port & 0x03 {
 	case 1: // Port B
+		old := p.portB
 		p.portB = value
+		// Clear della tastiera (PB7 0->1): azzera il latch del codice, cosi' le
+		// letture successive non sembrano un tasto bloccato.
+		if value&0x80 != 0 && old&0x80 == 0 {
+			p.KeyboardData = 0
+		}
+		// Reset della tastiera: il BIOS tiene basso il clock (PB6=0) e poi lo
+		// rilascia (PB6 0->1). La tastiera esegue il Basic Assurance Test e invia
+		// il codice 0xAA con IRQ1.
+		if value&0x40 != 0 && old&0x40 == 0 {
+			p.KeyboardData = 0xAA
+			if p.IRQ1 != nil {
+				p.IRQ1()
+			}
+		}
 	case 3: // parola di controllo
 		p.control = value
 	}
