@@ -10,35 +10,34 @@ memoria mappato, spazio di I/O e periferiche.
 
 ## Stato
 
-Fondamenta (testate, `go test ./...` verde):
+Fatto e testato (`go test ./...` verde):
 
 - **`memory`** — bus a 1 MB con regioni **ROM** protette da scrittura (BIOS,
   option ROM) e RAM scrivibile; soddisfa `cpu.Bus`.
 - **`io`** — dispatcher dello spazio di I/O che instrada per intervallo di porte
   verso le periferiche (`Device`); soddisfa `cpu.Ports`. Porte non mappate: 0xFF.
-- **`machine`** — assembla CPU + memoria + I/O. Dopo il reset la CPU parte dal
-  vettore `0xFFFF0`, dove si carica il BIOS con `Mem.LoadROM`.
-- **`device`** — periferiche; per ora il latch diagnostico **POST** sulla porta
-  `0x80`.
+- **`device`** — periferiche XT: **8259 PIC** (controllore interrupt, porte
+  0x20-0x21), **8253 PIT** (timer, 0x40-0x43, contatore 0 → IRQ0), **8255 PPI**
+  (tastiera/speaker/DIP, 0x60-0x63) e il latch **POST** (0x80).
+- **`machine`** — `NewXT()` assembla CPU + memoria + I/O + periferiche già cablate
+  e gestisce il **percorso degli interrupt** PIT → PIC → CPU. Dopo il reset la CPU
+  parte dal vettore `0xFFFF0`, dove si carica il BIOS con `Mem.LoadROM`.
 
-Esempio (mini-BIOS in ROM che scrive un codice POST e si ferma):
+Architettura, mappa di memoria/I/O e percorso interrupt: vedi
+[docs/architettura.md](docs/architettura.md).
+
+Esempio — il timer genera IRQ0 e la CPU lo serve:
 
 ```go
-m := machine.New()
-post := &device.PostCode{}
-m.Map(0x80, 0x80, post)
-m.Mem.LoadROM(cpu.PhysAddr(0xFFFF, 0x0000), []byte{
-    0xB0, 0xAA, // MOV AL,0xAA
-    0xE6, 0x80, // OUT 0x80,AL
-    0xF4,       // HLT
-})
-m.Run(100)      // post.Last == 0xAA, eseguito dalla ROM al reset vector
+m := machine.NewXT()
+// (programma PIC/PIT e installa il gestore del vettore 8; vedi
+//  machine/interrupt_test.go per l'esempio completo)
+m.Run(2000) // il gestore IRQ0 viene eseguito a ogni tick del timer
 ```
 
 ## Roadmap
 
-- Periferiche XT: **8259** PIC, **8253** PIT, **8255** PPI (tastiera/speaker/DIP),
-  con integrazione degli interrupt (linea INTR + vettori).
+- Integrazione interrupt **8259/8253/8255** ✅ (percorso PIT → PIC → CPU testato).
 - Video: **6845** CRTC + buffer testo **CGA/MDA** con render; controller floppy
   **NEC 765**.
 - Boot di un **BIOS open** XT-compatibile (GLaBIOS / Super PC-XT, redistribuibili)
