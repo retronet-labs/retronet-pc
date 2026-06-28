@@ -28,6 +28,29 @@ func TestDMATransferToMemory(t *testing.T) {
 	}
 }
 
+// Il refresh DRAM (canale 0) deve accendere il bit Terminal Count TC0 nello stato
+// dopo un giro completo del conteggio; la lettura dello stato azzera i bit TC.
+func TestDMARefreshTerminalCount(t *testing.T) {
+	d := NewDMA()
+	// Conteggio canale 0 = 2 (= 3 cicli per il TC).
+	d.Out8(0x0C, 0)
+	d.Out8(0x01, 0x02)
+	d.Out8(0x01, 0x00)
+	d.RefreshCycle() // 2 -> 1
+	d.RefreshCycle() // 1 -> 0
+	if d.In8(0x08)&0x01 != 0 {
+		t.Error("TC0 non doveva essere ancora acceso")
+	}
+	d.RefreshCycle() // 0 -> underflow: TC0
+	st := d.In8(0x08)
+	if st&0x01 == 0 {
+		t.Fatalf("TC0 doveva essere acceso, stato=%#02x", st)
+	}
+	if d.In8(0x08)&0x01 != 0 {
+		t.Error("la lettura dello stato deve azzerare TC0")
+	}
+}
+
 func TestDMATransferFromMemory(t *testing.T) {
 	d := NewDMA()
 	mem := &fakeMem{}

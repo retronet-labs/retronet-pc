@@ -19,6 +19,9 @@ type PIT struct {
 	// IRQ0 viene chiamato a ogni terminal count del contatore 0 (collegato al PIC
 	// dalla macchina).
 	IRQ0 func()
+	// Counter1Out viene chiamato a ogni terminal count del contatore 1, che
+	// sull'XT pilota il refresh della DRAM tramite il DMA canale 0.
+	Counter1Out func()
 }
 
 type counter struct {
@@ -42,7 +45,11 @@ func (t *PIT) Tick(cycles int) {
 	if t.counters[0].tick(cycles) > 0 && t.IRQ0 != nil {
 		t.IRQ0()
 	}
-	t.counters[1].tick(cycles)
+	if p := t.counters[1].tick(cycles); p > 0 && t.Counter1Out != nil {
+		for i := 0; i < p; i++ {
+			t.Counter1Out()
+		}
+	}
 	t.counters[2].tick(cycles)
 }
 
@@ -78,11 +85,11 @@ func (t *PIT) Out8(port uint16, value byte) {
 	}
 	c := &t.counters[port&3]
 	switch c.access {
-	case 1: // solo LSB
-		c.reload = c.reload&0xFF00 | uint16(value)
+	case 1: // solo LSB: il byte alto e' azzerato
+		c.reload = uint16(value)
 		c.load()
-	case 2: // solo MSB
-		c.reload = c.reload&0x00FF | uint16(value)<<8
+	case 2: // solo MSB: il byte basso e' azzerato
+		c.reload = uint16(value) << 8
 		c.load()
 	default: // 3: LSB poi MSB
 		if !c.writeHi {

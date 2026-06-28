@@ -14,6 +14,7 @@ package device
 type DMA struct {
 	channels [4]dmaChannel
 	flipHi   bool // false = prossimo accesso byte basso, true = byte alto
+	tcStatus byte // bit Terminal Count per canale, azzerati alla lettura dello status
 }
 
 type dmaChannel struct {
@@ -70,10 +71,25 @@ func (d *DMA) In8(port uint16) byte {
 		return d.readWord(d.channels[(port>>1)&3].addr)
 	case 0x01, 0x03, 0x05, 0x07:
 		return d.readWord(d.channels[(port>>1)&3].count)
-	case 0x08: // stato
-		return 0x00
+	case 0x08: // registro di stato: bit Terminal Count, azzerati dopo la lettura
+		s := d.tcStatus
+		d.tcStatus = 0
+		return s
 	}
 	return 0xFF
+}
+
+// RefreshCycle esegue un ciclo di refresh DRAM sul canale 0 (pilotato dall'uscita
+// del contatore 1 del PIT): decrementa il conteggio e, al Terminal Count, accende
+// il bit TC0 nello stato e ricarica il conteggio (auto-init).
+func (d *DMA) RefreshCycle() {
+	c := &d.channels[0]
+	if c.count == 0 {
+		d.tcStatus |= 0x01
+		c.count = 0xFFFF
+	} else {
+		c.count--
+	}
 }
 
 // Page legge/scrive i registri di pagina (porte 0x80-0x8F). La mappatura XT delle
@@ -153,7 +169,9 @@ func (d *DMA) TransferToMemory(channel int, mem memWriter, data []byte) {
 	for i := 0; i < n; i++ {
 		mem.Write8((base+uint32(i))&0xFFFFF, data[i])
 	}
-	d.advance(c, n)
+	if d.advance(c, n) {
+		d.tcStatus |= 1 << uint(channel)
+	}
 }
 
 // TransferFromMemory legge n byte dalla memoria all'indirizzo del canale e li
@@ -169,11 +187,17 @@ func (d *DMA) TransferFromMemory(channel int, mem memWriter, n int) []byte {
 	for i := 0; i < n; i++ {
 		out[i] = mem.Read8((base + uint32(i)) & 0xFFFFF)
 	}
-	d.advance(c, n)
+	if d.advance(c, n) {
+		d.tcStatus |= 1 << uint(channel)
+	}
 	return out
 }
 
-func (d *DMA) advance(c *dmaChannel, n int) {
+// advance fa avanzare indirizzo e conteggio del canale e restituisce true se il
+// conteggio e' andato in underflow (Terminal Count).
+func (d *DMA) advance(c *dmaChannel, n int) bool {
+	underflow := uint16(n) > c.count
 	c.addr += uint16(n)
-	c.count -= uint16(n) // a fine trasferimento va in underflow: e' il Terminal Count
+	c.count -= uint16(n)
+	return underflow
 }
