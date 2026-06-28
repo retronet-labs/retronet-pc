@@ -19,7 +19,7 @@ func main() {
 	floppy := flag.String("floppy", "", "immagine floppy raw per il drive A:")
 	steps := flag.Int("steps", 20_000_000, "numero massimo di passi da eseguire")
 	keys := flag.String("keys", "", "testo da digitare sulla tastiera dopo l'avvio")
-	alu := flag.String("alu", "gate", "backend ALU della CPU: gate (porte logiche) oppure native")
+	alu := flag.String("alu", "native", "backend ALU della CPU: native (default) oppure gate (porte logiche)")
 	flag.Parse()
 
 	if *bios == "" {
@@ -28,7 +28,9 @@ func main() {
 	}
 
 	m := machine.NewXT()
-	if *alu == "native" {
+	if *alu == "gate" {
+		m.CPU.SetALU(cpu.Gate)
+	} else {
 		m.CPU.SetALU(cpu.Native)
 	}
 

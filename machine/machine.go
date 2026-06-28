@@ -65,6 +65,11 @@ func NewXT() *Machine {
 	m.Video = device.NewMDA()
 	m.Post = &device.PostCode{}
 
+	// Per un PC completo il default e' l'ALU native (piu' veloce); l'ALU a porte
+	// logiche resta selezionabile con CPU.SetALU(cpu.Gate). Le due sono identiche
+	// nei risultati e nei flag.
+	m.CPU.SetALU(cpu.Native)
+
 	// L'uscita del contatore 0 del timer alza IRQ0 sul PIC.
 	m.Pit.IRQ0 = func() { m.Pic.RaiseIRQ(0) }
 	// L'uscita del contatore 1 pilota il refresh DRAM sul DMA canale 0.

@@ -5,8 +5,9 @@ sopra la CPU [retronet-8086](https://github.com/retronet-labs/retronet-8086): il
 core 8086/8088 fa da motore, retronet-pc aggiunge la **macchina** intorno — bus di
 memoria mappato, spazio di I/O e periferiche.
 
-> L'aritmetica della CPU gira (di default) sull'ALU a **porte logiche** di
-> retronet-logic: un PC/XT che calcola dai gate.
+> La CPU eredita da retronet-8086 due ALU identiche: di default la più rapida
+> (**native**), ma con `-alu gate` l'aritmetica gira sulle sole **porte logiche**
+> di retronet-logic — un PC/XT che calcola dai gate.
 
 ## Stato
 
