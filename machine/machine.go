@@ -17,9 +17,10 @@ type Machine struct {
 	Mem *memory.Bus
 	IO  *io.Ports
 
-	Pic *device.PIC
-	Pit *device.PIT
-	Ppi *device.PPI
+	Pic   *device.PIC
+	Pit   *device.PIT
+	Ppi   *device.PPI
+	Video *device.MDA
 
 	// timerCycles e' il numero di colpi di clock del PIT fatti avanzare a ogni
 	// istruzione. Il modello non e' cycle-accurate: questa e' un'approssimazione
@@ -45,6 +46,7 @@ func New() *Machine {
 //   - 8259 PIC  -> 0x20-0x21
 //   - 8253 PIT  -> 0x40-0x43 (uscita del contatore 0 collegata a IRQ0)
 //   - 8255 PPI  -> 0x60-0x63
+//   - MDA       -> 0x3B4-0x3BB (testo monocromatico 80x25 a 0xB0000)
 //
 // Dopo il reset la CPU parte dal vettore 0xFFFF0, dove va caricato il BIOS con
 // Mem.LoadROM.
@@ -53,16 +55,30 @@ func NewXT() *Machine {
 	m.Pic = device.NewPIC()
 	m.Pit = device.NewPIT()
 	m.Ppi = device.NewPPI()
+	m.Video = device.NewMDA()
 
 	// L'uscita del contatore 0 del timer alza IRQ0 sul PIC.
 	m.Pit.IRQ0 = func() { m.Pic.RaiseIRQ(0) }
 
+	// DIP switch SW1: tipo video monocromatico (MDA) nei bit 4-5.
+	m.Ppi.DIPSwitches = 0x30
+
 	m.IO.Map(0x20, 0x21, m.Pic)
 	m.IO.Map(0x40, 0x43, m.Pit)
 	m.IO.Map(0x60, 0x63, m.Ppi)
+	m.IO.Map(0x3B4, 0x3BB, m.Video)
 
 	m.timerCycles = 1
 	return m
+}
+
+// Screen restituisce lo schermo testuale corrente (80x25) leggendo la RAM video
+// dall'MDA. Vuoto se la macchina non ha video.
+func (m *Machine) Screen() string {
+	if m.Video == nil {
+		return ""
+	}
+	return m.Video.Render(m.Mem)
 }
 
 // Map collega una periferica a un intervallo di porte I/O.
