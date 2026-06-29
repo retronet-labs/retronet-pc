@@ -123,6 +123,55 @@ func TestPPIShiftedKeys(t *testing.T) {
 	}
 }
 
+// I tasti estesi (frecce, Home, ...) sono consegnati col prefisso 0xE0 sia sul
+// make sia sul break.
+func TestPPIExtendedKey(t *testing.T) {
+	p := NewPPI()
+	p.PressKey(KeyUp, 0)
+	got := drainKeys(p, 4)
+	want := []byte{scExtended, 0x48, scExtended, 0xC8}
+	if string(got) != string(want) {
+		t.Errorf("PressKey(KeyUp) = % X, atteso % X", got, want)
+	}
+}
+
+// I tasti funzione non sono estesi: solo make/break.
+func TestPPIFunctionKey(t *testing.T) {
+	p := NewPPI()
+	p.PressKey(KeyF10, 0)
+	got := drainKeys(p, 2)
+	want := []byte{0x44, 0xC4}
+	if string(got) != string(want) {
+		t.Errorf("PressKey(KeyF10) = % X, atteso % X", got, want)
+	}
+}
+
+// Modificatori multipli: make Shift/Ctrl/Alt, tasto, poi break in ordine inverso.
+func TestPPIModifierWrapping(t *testing.T) {
+	p := NewPPI()
+	p.PressKey(KeyDelete, ModCtrl|ModAlt) // Ctrl+Alt+Canc
+	got := drainKeys(p, 8)
+	want := []byte{
+		scCtrlMake, scAltMake,
+		scExtended, 0x53, scExtended, 0xD3,
+		scAltBreak, scCtrlBreak,
+	}
+	if string(got) != string(want) {
+		t.Errorf("Ctrl+Alt+Del = % X, atteso % X", got, want)
+	}
+}
+
+// Type traduce i caratteri di controllo: Ctrl-C come Ctrl + 'c'.
+func TestPPITypeControlChar(t *testing.T) {
+	p := NewPPI()
+	p.Type("\x03") // Ctrl-C
+	got := drainKeys(p, 4)
+	want := []byte{scCtrlMake, 0x2E, 0xAE, scCtrlBreak} // 0x2E = 'c'
+	if string(got) != string(want) {
+		t.Errorf("Type(Ctrl-C) = % X, atteso % X", got, want)
+	}
+}
+
 func TestPPISpeaker(t *testing.T) {
 	p := NewPPI()
 	p.Out8(0x61, 0x03) // PB0+PB1
