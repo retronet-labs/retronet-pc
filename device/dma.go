@@ -158,8 +158,10 @@ func (c *dmaChannel) length() int { return int(c.count) + 1 }
 
 // TransferToMemory copia data in memoria all'indirizzo del canale, poi avanza
 // indirizzo e conteggio. Usato dal floppy per una lettura (disco -> RAM). Copia al
-// massimo length() byte.
-func (d *DMA) TransferToMemory(channel int, mem memWriter, data []byte) {
+// massimo length() byte. Restituisce true se il trasferimento ha raggiunto il
+// Terminal Count del canale (conteggio esaurito): il segnale TC che, sul vero
+// hardware, fa terminare il comando del controllore floppy.
+func (d *DMA) TransferToMemory(channel int, mem memWriter, data []byte) bool {
 	c := &d.channels[channel]
 	n := c.length()
 	if n > len(data) {
@@ -169,15 +171,18 @@ func (d *DMA) TransferToMemory(channel int, mem memWriter, data []byte) {
 	for i := 0; i < n; i++ {
 		mem.Write8((base+uint32(i))&0xFFFFF, data[i])
 	}
-	if d.advance(c, n) {
+	tc := d.advance(c, n)
+	if tc {
 		d.tcStatus |= 1 << uint(channel)
 	}
+	return tc
 }
 
 // TransferFromMemory legge n byte dalla memoria all'indirizzo del canale e li
 // restituisce, poi avanza indirizzo e conteggio. Usato dal floppy per una
-// scrittura (RAM -> disco).
-func (d *DMA) TransferFromMemory(channel int, mem memWriter, n int) []byte {
+// scrittura (RAM -> disco). Il secondo valore di ritorno e' true se il
+// trasferimento ha raggiunto il Terminal Count del canale.
+func (d *DMA) TransferFromMemory(channel int, mem memWriter, n int) ([]byte, bool) {
 	c := &d.channels[channel]
 	if max := c.length(); n > max {
 		n = max
@@ -187,10 +192,11 @@ func (d *DMA) TransferFromMemory(channel int, mem memWriter, n int) []byte {
 	for i := 0; i < n; i++ {
 		out[i] = mem.Read8((base + uint32(i)) & 0xFFFFF)
 	}
-	if d.advance(c, n) {
+	tc := d.advance(c, n)
+	if tc {
 		d.tcStatus |= 1 << uint(channel)
 	}
-	return out
+	return out, tc
 }
 
 // advance fa avanzare indirizzo e conteggio del canale e restituisce true se il

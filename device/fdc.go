@@ -212,18 +212,31 @@ func (f *FDC) readWrite(write bool) {
 		st0 |= 0x40 // abnormal termination
 		st1 |= 0x04 // no data
 	} else {
-		for s := r; s <= eot; s++ {
+		// Il 765 trasferisce a partire dal settore R: ne legge sempre almeno uno e
+		// prosegue verso EOT, ma e' il DMA a scandire la lunghezza reale. Quando il
+		// canale raggiunge il Terminal Count, il segnale TC fa terminare il comando
+		// dopo il settore in corso; EOT e' solo il marcatore di fine traccia.
+		//
+		// Due trappole evitate qui: (1) NON usare EOT come limite superiore del ciclo
+		// (il loader del DOS legge un settore alla volta con EOT fisso, es. 8, e
+		// richiede R=9,10,... che con "for s<=eot" non leggerebbero nulla, lasciando
+		// nel buffer dati stantii); (2) fermarsi al TC, altrimenti una lettura
+		// programmata per un solo settore leggerebbe l'intera traccia.
+		s := r
+		for {
 			var err error
+			tc := false
 			if write {
 				if f.DMA != nil && f.Mem != nil {
-					data := f.DMA.TransferFromMemory(2, f.Mem, f.Disk.Geo.SectorSize)
+					var data []byte
+					data, tc = f.DMA.TransferFromMemory(2, f.Mem, f.Disk.Geo.SectorSize)
 					err = f.Disk.WriteSector(c, h, s, data)
 				}
 			} else {
 				var data []byte
 				data, err = f.Disk.ReadSector(c, h, s)
 				if err == nil && f.DMA != nil && f.Mem != nil {
-					f.DMA.TransferToMemory(2, f.Mem, data)
+					tc = f.DMA.TransferToMemory(2, f.Mem, data)
 				}
 			}
 			if err != nil {
@@ -232,6 +245,10 @@ func (f *FDC) readWrite(write bool) {
 				break
 			}
 			r = s
+			if tc || s >= eot {
+				break // Terminal Count del DMA, oppure raggiunto EOT (fine traccia)
+			}
+			s++
 		}
 		r++ // il 765 restituisce la posizione del settore successivo
 	}

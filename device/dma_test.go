@@ -63,8 +63,11 @@ func TestDMATransferFromMemory(t *testing.T) {
 	d.Out8(0x82, 0x03) // pagina canale 3
 	d.Out8(0x07, 0x02) // count canale 3 (porta 0x07): 2 (= 3 byte)
 	d.Out8(0x07, 0x00)
-	out := d.TransferFromMemory(3, mem, 3)
+	out, tc := d.TransferFromMemory(3, mem, 3)
 	if string(out) != "\x11\x22\x33" {
 		t.Errorf("letti %v, attesi 11 22 33", out)
+	}
+	if !tc {
+		t.Errorf("atteso Terminal Count dopo aver esaurito il conteggio")
 	}
 }
