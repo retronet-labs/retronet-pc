@@ -7,8 +7,10 @@ go.work.sum
 *.exe
 *.test
 *.out
+.DS_Store
 
 # ROM del BIOS e dischi forniti dall'utente (non redistribuiti)
 *.rom
 *.bin
 *.img
+*.zip

@@ -49,12 +49,17 @@ m.Run(2000) // il gestore IRQ0 viene eseguito a ogni tick del timer
 - **Boot di un BIOS reale** ✅: GLaBIOS esegue il **POST senza errori**, disegna
   sull'MDA e **avvia dal floppy** (settore di boot via FDC→DMA→0x7C00, con servizi
   BIOS come `INT 10h`). Vedi [docs/architettura.md](docs/architettura.md).
+- **Boot di FreeDOS** ✅: floppy 1.44 MB completo (FAT12 → KERNEL.SYS UPX via
+  FDC/DMA → decompressione → kernel + FreeCom) fino al prompt `A:\>`.
 - **Input da tastiera** ✅: coda di codici di scansione con ritardo di trasmissione
-  (handshake INT9), con **Shift** per maiuscole e simboli (layout US); da CLI
-  `-keys "testo"` digita dopo l'avvio.
+  (handshake INT9); set 1 completo — testo, **Shift/Ctrl/Alt**, tasti **estesi** e
+  **funzione** (`PressKey`/`Type`); da CLI `-keys "testo"` digita dopo l'avvio.
+- **Modalità interattiva** ✅: `-interactive` — schermo a 60 Hz e tastiera reale
+  (raw mode, darwin/linux); le frecce e i tasti di navigazione del terminale sono
+  tradotti in scancodi. Si esce con **Ctrl+]**.
 - **Video MDA e CGA** ✅ (testo 80x25); `-video cga` o `Machine.UseCGA()`.
-- Da fare: modi **grafici CGA**, tasti **Ctrl/Alt** e tasti estesi, controller
-  disco fisso, timing più fedele.
+- Da fare: modi **grafici CGA**, controller disco fisso, seriale/parallela,
+  timing più fedele.
 
 ## Sviluppo locale (multi-repo)
 
