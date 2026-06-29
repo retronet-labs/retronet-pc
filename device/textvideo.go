@@ -86,6 +86,17 @@ func (v *TextVideo) startOffset() int {
 	return int(v.crtc[12])<<8 | int(v.crtc[13])
 }
 
+// CursorPos restituisce la posizione del cursore hardware (riga, colonna) relativa
+// all'inizio della pagina visualizzata, e se e' visibile. Il cursore e' nascosto
+// quando i bit di "cursor start" del registro R10 lo disabilitano (0x20) o quando
+// cade fuori dall'area visibile.
+func (v *TextVideo) CursorPos() (row, col int, visible bool) {
+	off := (v.CursorOffset() - v.startOffset()) & v.cellMask
+	row, col = off/v.Columns, off%v.Columns
+	visible = v.crtc[10]&0x20 == 0 && row < v.Rows
+	return row, col, visible
+}
+
 // Render legge la RAM video dal bus e restituisce lo schermo come testo (una riga
 // per riga). I byte non stampabili diventano spazio o '.'.
 func (v *TextVideo) Render(mem memReader) string {
