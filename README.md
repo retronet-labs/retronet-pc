@@ -58,8 +58,10 @@ m.Run(2000) // il gestore IRQ0 viene eseguito a ogni tick del timer
   (raw mode, darwin/linux); le frecce e i tasti di navigazione del terminale sono
   tradotti in scancodi. Si esce con **Ctrl+]**.
 - **Video MDA e CGA** ✅ (testo 80x25); `-video cga` o `Machine.UseCGA()`.
-- Da fare: modi **grafici CGA**, controller disco fisso, seriale/parallela,
-  timing più fedele.
+- **Disco fisso XT-IDE** ✅: scheda XT-IDE rev 1 + disco ATA (LBA/CHS, IDENTIFY);
+  con l'option ROM *XTIDE Universal BIOS* il disco è un **C:** persistente
+  (`-hdd c.img -hddsize 32 -xtide-bios ide_xt.bin`).
+- Da fare: modi **grafici CGA**, seriale/parallela, timing più fedele.
 
 ## Sviluppo locale (multi-repo)
 

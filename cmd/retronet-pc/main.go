@@ -14,8 +14,39 @@ import (
 	"syscall"
 
 	"github.com/retronet-labs/retronet-8086/cpu"
+	"github.com/retronet-labs/retronet-pc/disk"
 	"github.com/retronet-labs/retronet-pc/machine"
 )
+
+// openHardDisk apre l'immagine del disco fisso; se non esiste e sizeMB>0 la crea
+// (riempita di zeri). La dimensione (multiplo di 512) determina il numero di
+// settori. Il file resta aperto: le scritture del disco vi arrivano direttamente.
+func openHardDisk(path string, sizeMB int) (*disk.HardDisk, uint32, error) {
+	f, err := os.OpenFile(path, os.O_RDWR, 0o644)
+	if os.IsNotExist(err) {
+		if sizeMB <= 0 {
+			return nil, 0, fmt.Errorf("%s non esiste; usa -hddsize per crearlo", path)
+		}
+		f, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o644)
+		if err != nil {
+			return nil, 0, err
+		}
+		if err := f.Truncate(int64(sizeMB) * 1024 * 1024); err != nil {
+			return nil, 0, err
+		}
+	} else if err != nil {
+		return nil, 0, err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		return nil, 0, err
+	}
+	sectors := uint32(info.Size() / disk.SectorSize)
+	if sectors == 0 {
+		return nil, 0, fmt.Errorf("immagine disco vuota")
+	}
+	return disk.NewHardDisk(f, sectors), sectors, nil
+}
 
 func main() {
 	bios := flag.String("bios", "", "file ROM del BIOS (caricato in cima al 1 MB)")
@@ -27,6 +58,9 @@ func main() {
 	live := flag.Bool("live", false, "aggiorna lo schermo ogni 10M passi (Ctrl+C per fermare)")
 	interactive := flag.Bool("interactive", false, "modalita' interattiva: schermo a 60 Hz e tastiera reale (Ctrl+] esce)")
 	ips := flag.Int("ips", 200_000, "passi macchina per fotogramma in modalita' interattiva (velocita' percepita)")
+	hdd := flag.String("hdd", "", "immagine disco fisso (drive C: via XT-IDE; creata se assente con -hddsize)")
+	hddSize := flag.Int("hddsize", 0, "dimensione in MB del disco fisso da creare se -hdd non esiste (0 = non creare)")
+	xtideBIOS := flag.String("xtide-bios", "", "option ROM XTIDE Universal BIOS (necessaria per usare -hdd), caricata a 0xC8000")
 	flag.Parse()
 
 	if *bios == "" {
@@ -64,6 +98,30 @@ func main() {
 		}
 		fmt.Printf("floppy A: %d byte (%dx%dx%d)\n", len(img),
 			m.Fdc.Disk.Geo.Cylinders, m.Fdc.Disk.Geo.Heads, m.Fdc.Disk.Geo.Sectors)
+	}
+
+	if *hdd != "" {
+		hd, sectors, err := openHardDisk(*hdd, *hddSize)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "hdd:", err)
+			os.Exit(1)
+		}
+		m.AttachHardDisk(hd)
+		geo := hd.Geometry()
+		fmt.Printf("disco fisso C: %d settori (%dx%dx%d)\n", sectors, geo.Cylinders, geo.Heads, geo.Sectors)
+		if *xtideBIOS == "" {
+			fmt.Fprintln(os.Stderr, "attenzione: -hdd senza -xtide-bios: il BIOS non vedra' il disco (serve l'option ROM XTIDE)")
+		}
+	}
+
+	if *xtideBIOS != "" {
+		orom, err := os.ReadFile(*xtideBIOS)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "xtide-bios:", err)
+			os.Exit(1)
+		}
+		m.LoadOptionROM(0xC8000, orom)
+		fmt.Printf("XTIDE option ROM: %d byte a C8000\n", len(orom))
 	}
 
 	if *keys != "" {

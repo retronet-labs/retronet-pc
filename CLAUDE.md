@@ -42,11 +42,14 @@ memoria a 1 MB, spazio di I/O e periferiche XT. Panoramica utente:
   go run ./cmd/retronet-pc -bios <ROM> -floppy <img> -alu gate    # ALU a porte logiche
   go run ./cmd/retronet-pc -bios <ROM> -floppy <img> -keys "ciao" # digita dopo l'avvio
   go run ./cmd/retronet-pc -bios <ROM> -floppy <img> -interactive  # uso interattivo (Ctrl+] esce)
+  go run ./cmd/retronet-pc -bios <ROM> -hdd c.img -hddsize 32 -xtide-bios ide_xt.bin  # disco fisso C:
   ```
   Flag: `-steps` (limite istruzioni), `-video mda|cga` (default mda),
   `-alu native|gate` (**default native**, più veloce; `gate` = aritmetica dai gate),
   `-interactive` (schermo a 60 Hz + tastiera reale in raw mode; `-ips` = passi per
-  fotogramma, cioè la velocità percepita).
+  fotogramma, cioè la velocità percepita), `-hdd <img>` + `-hddsize <MB>` (disco
+  fisso, creato se assente) + `-xtide-bios <rom>` (option ROM XTIDE Universal BIOS,
+  necessaria perché il BIOS veda il disco).
 
 ## Componenti
 
@@ -58,9 +61,13 @@ memoria a 1 MB, spazio di I/O e periferiche XT. Panoramica utente:
   Shift, **Ctrl/Alt**, tasti **estesi `0xE0`** e **funzione**, via `PressKey`/`Type`),
   **MDA** (0x3B4, 0xB0000) e
   **CGA** (0x3D4, 0xB8000) via `TextVideo` generico, **FDC NEC 765** (0x3F0-0x3F7,
-  IRQ6 via DMA ch2), latch **POST** (0x80).
-- **`disk`**: immagini floppy raw (360 KB … 1.44 MB), conversione CHS.
+  IRQ6 via DMA ch2), **XT-IDE rev 1** (`xtide.go`+`ata.go`, 0x300-0x30F: disco
+  fisso IDE/ATA adattato al bus 8 bit con latch per il byte alto; option ROM a
+  0xC8000), latch **POST** (0x80).
+- **`disk`**: immagini floppy raw (360 KB … 1.44 MB) e **dischi fissi** (`HardDisk`,
+  indirizzamento LBA, geometria CHS dedotta; backing su file o memoria), conversione CHS.
 - **`machine`**: `NewXT()` cabla CPU+memoria+I/O+periferiche; reset da `0xFFFF0`.
+  `AttachHardDisk`/`LoadOptionROM` aggiungono il disco fisso XT-IDE.
   Default `SetALU(cpu.Native)`. `UseCGA()` imposta i DIP su video a colori.
   Il ciclo macchina (`Step`) avanza il PIT, riconosce gli IRQ del PIC e li consegna
   con `CPU.Interrupt()` se IF=1; `Ppi.Tick` gestisce il ritardo di trasmissione
@@ -108,5 +115,11 @@ hardware, traduzione dei tasti dell'host in scancodi (testo/Ctrl-x via `Type`,
 sequenze ANSI frecce/navigazione/F1-F4 via `PressKey`); uscita con Ctrl+]. Il
 parser dei tasti e' coperto da test (`cmd/retronet-pc/interactive_test.go`).
 
-Tag: `v0.1.0`. Prossimi passi: modi **grafici CGA** (framebuffer a pixel sopra il
-frontend), controller **disco fisso**, seriale/parallela, timing più fedele.
+**Disco fisso XT-IDE** (`-hdd` + `-xtide-bios`): scheda XT-IDE rev 1 (0x300) +
+disco ATA con LBA/CHS e IDENTIFY; l'XTIDE Universal BIOS (option ROM a 0xC8000)
+rileva il disco al POST e aggancia INT 13h. Verificato end-to-end: GLaBIOS scansiona
+la ROM → XUB "Master at 300h" → avvio dal disco (INT 19h, settore di boot a 0x7C00).
+Persistenza su file. Test: `device/xtide_test.go`, `machine/boot_hdd_test.go`.
+
+Tag: `v0.2.0`. Prossimi passi: modi **grafici CGA** (framebuffer a pixel sopra il
+frontend), seriale/parallela, secondo disco/partizioni, timing più fedele.

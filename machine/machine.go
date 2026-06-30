@@ -23,6 +23,7 @@ type Machine struct {
 	Ppi   *device.PPI
 	Dma   *device.DMA
 	Fdc   *device.FDC
+	Hdc   *device.XTIDE     // scheda XT-IDE (disco fisso), nil finche' non collegata
 	Video *device.TextVideo // adattatore attivo (per Screen())
 	cga   *device.TextVideo
 	Post  *device.PostCode
@@ -109,6 +110,23 @@ func NewXT() *Machine {
 func (m *Machine) LoadBIOS(rom []byte) {
 	base := uint32(0x100000 - len(rom))
 	m.Mem.LoadROM(base, rom)
+}
+
+// AttachHardDisk collega un disco fisso tramite una scheda XT-IDE rev 1, mappata
+// alle 16 porte canoniche 0x300-0x30F. Perche' il BIOS lo veda serve anche la sua
+// option ROM (XTIDE Universal BIOS), da caricare a 0xC8000 con LoadOptionROM: al
+// POST aggancia INT 13h e rileva il disco.
+func (m *Machine) AttachHardDisk(hd *disk.HardDisk) {
+	m.Hdc = device.NewXTIDE()
+	m.Hdc.ATA.Disk = hd
+	m.IO.Map(0x300, 0x30F, m.Hdc)
+}
+
+// LoadOptionROM carica una option ROM (es. l'XTIDE Universal BIOS) all'indirizzo
+// dato, marcandola di sola lettura. Il POST del BIOS scandisce l'area delle option
+// ROM (firma 0x55 0xAA) e ne richiama l'inizializzazione.
+func (m *Machine) LoadOptionROM(addr uint32, rom []byte) {
+	m.Mem.LoadROM(addr, rom)
 }
 
 // LoadFloppy inserisce un'immagine raw nel drive A: (drive 0 del controllore),
